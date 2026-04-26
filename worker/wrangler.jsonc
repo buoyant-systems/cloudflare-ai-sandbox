@@ -33,12 +33,6 @@
     {
       "new_sqlite_classes": ["Sandbox"],
       "tag": "v1"
-    },
-    {
-      // WarmPool was removed — this deleted_classes migration ensures Wrangler
-      // cleans up the old DO class on the next deploy.
-      "deleted_classes": ["WarmPool"],
-      "tag": "v3"
     }
   ],
   // Bind an R2 bucket named BACKUP_BUCKET to enable workspace snapshot
