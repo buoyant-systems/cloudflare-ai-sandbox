@@ -8,25 +8,48 @@
  */
 
 import { bridge } from '@cloudflare/sandbox/bridge';
-import { handleGitClone } from './git-clone';
-import type { GitCloneRequest } from './git-clone';
+import {
+  handleGitClone,
+  handleGitFetch,
+  handleGitPull,
+  handleGitPush,
+} from './git';
 
 // Re-export Sandbox so Wrangler can wire up the Durable Object binding.
 export { Sandbox } from '@cloudflare/sandbox';
 
-/** Pattern: POST /v1/sandbox/:id/git/clone */
-const GIT_CLONE_PATTERN = new URLPattern({ pathname: '/v1/sandbox/:id/git/clone' });
+/** Pattern: POST /v1/sandbox/:id/git/:action */
+const GIT_PATTERN = new URLPattern({ pathname: '/v1/sandbox/:id/git/:action' });
 
 /** Sandbox ID must be base32 lowercase, 1-128 chars. */
 const SANDBOX_ID_RE = /^[a-z2-7]{1,128}$/;
 
+/** Supported git actions and their handlers. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const GIT_HANDLERS: Record<string, (id: string, body: any, getSandbox: (id: string) => unknown) => Promise<Response>> = {
+  clone: handleGitClone,
+  pull: handleGitPull,
+  push: handleGitPush,
+  fetch: handleGitFetch,
+};
+
 export default bridge({
   async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
-    // ── POST /v1/sandbox/:id/git/clone ──────────────────────────────
+    // ── POST /v1/sandbox/:id/git/:action ────────────────────────────
     if (request.method === 'POST') {
-      const match = GIT_CLONE_PATTERN.exec(request.url);
+      const match = GIT_PATTERN.exec(request.url);
       if (match) {
         const sandboxId = match.pathname.groups.id ?? '';
+        const action = match.pathname.groups.action ?? '';
+
+        // Validate action
+        const handler = GIT_HANDLERS[action];
+        if (!handler) {
+          return Response.json(
+            { error: `Unknown git action: ${action}`, code: 'not_found' },
+            { status: 404 }
+          );
+        }
 
         // Validate sandbox ID format
         if (!SANDBOX_ID_RE.test(sandboxId)) {
@@ -49,9 +72,9 @@ export default bridge({
         }
 
         // Parse JSON body
-        let body: GitCloneRequest;
+        let body: unknown;
         try {
-          body = (await request.json()) as GitCloneRequest;
+          body = await request.json();
         } catch {
           return Response.json(
             { error: 'Invalid JSON body', code: 'invalid_request' },
@@ -63,7 +86,7 @@ export default bridge({
         const stubId = env.Sandbox.idFromName(sandboxId);
         const stub = env.Sandbox.get(stubId);
 
-        return handleGitClone(sandboxId, body, () => stub);
+        return handler(sandboxId, body as never, () => stub);
       }
     }
 

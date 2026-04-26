@@ -101,6 +101,9 @@ This worker is an HTTP bridge for the `BaseSandboxSession` abstract interface. E
 | _(create session)_          | `POST /v1/sandbox/:id/session`        | Create an execution session                      |
 | _(delete session)_          | `DELETE /v1/sandbox/:id/session/:sid` | Delete an execution session                      |
 | _(git clone)_               | `POST /v1/sandbox/:id/git/clone`      | Clone a private repo (credentials never stored)  |
+| _(git pull)_                | `POST /v1/sandbox/:id/git/pull`       | Pull from remote (credentials never stored)      |
+| _(git push)_                | `POST /v1/sandbox/:id/git/push`       | Push to remote (credentials never stored)        |
+| _(git fetch)_               | `POST /v1/sandbox/:id/git/fetch`      | Fetch from remote (credentials never stored)     |
 
 ## API Reference
 
@@ -352,6 +355,100 @@ curl -X POST http://localhost:8787/v1/sandbox/mfrggzdfmy2tqnrz/git/clone \
 ```
 
 **Security model:** The token is injected via `git -c credential.helper='!f() { ... }; f'`, which makes it available only to the `git` process as a command argument. It is never set as an environment variable, never written to a file, and never stored in git config. The clean URL (without credentials) is what gets recorded in `.git/config` and the reflog.
+
+All git endpoints (`clone`, `pull`, `push`, `fetch`) share this security model.
+
+---
+
+#### `POST /v1/sandbox/:id/git/pull`
+
+Pull from a remote in an existing repository.
+
+```sh
+curl -X POST http://localhost:8787/v1/sandbox/mfrggzdfmy2tqnrz/git/pull \
+  -H "Authorization: Bearer $SANDBOX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"path": "/workspace/my-repo", "token": "ghp_xxxx"}'
+```
+
+**Request body:**
+
+| Field       | Type    | Required | Description                                           |
+| ----------- | ------- | -------- | ----------------------------------------------------- |
+| `path`      | string  | yes      | Path to the git repository within `/workspace`        |
+| `token`     | string  | yes      | Auth token for the remote                             |
+| `remote`    | string  | no       | Remote name (default: `origin`)                       |
+| `branch`    | string  | no       | Branch to pull                                        |
+| `force`     | boolean | no       | Force-update local refs (`--force`)                   |
+| `rebase`    | boolean | no       | Rebase instead of merge (`--rebase`)                  |
+| `tokenUser` | string  | no       | HTTPS username (default: `x-access-token`)            |
+
+**Response (200):**
+
+```json
+{ "ok": true, "stdout": "Already up to date.\n", "stderr": "" }
+```
+
+---
+
+#### `POST /v1/sandbox/:id/git/push`
+
+Push commits to a remote.
+
+```sh
+curl -X POST http://localhost:8787/v1/sandbox/mfrggzdfmy2tqnrz/git/push \
+  -H "Authorization: Bearer $SANDBOX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"path": "/workspace/my-repo", "token": "ghp_xxxx"}'
+```
+
+**Request body:**
+
+| Field       | Type    | Required | Description                                           |
+| ----------- | ------- | -------- | ----------------------------------------------------- |
+| `path`      | string  | yes      | Path to the git repository within `/workspace`        |
+| `token`     | string  | yes      | Auth token for the remote                             |
+| `remote`    | string  | no       | Remote name (default: `origin`)                       |
+| `branch`    | string  | no       | Branch to push                                        |
+| `force`     | boolean | no       | Force-push, overwriting remote history (`--force`)    |
+| `tokenUser` | string  | no       | HTTPS username (default: `x-access-token`)            |
+
+**Response (200):**
+
+```json
+{ "ok": true, "stdout": "", "stderr": "To https://github.com/org/repo.git\n   abc..def  main -> main\n" }
+```
+
+---
+
+#### `POST /v1/sandbox/:id/git/fetch`
+
+Fetch refs from a remote without merging.
+
+```sh
+curl -X POST http://localhost:8787/v1/sandbox/mfrggzdfmy2tqnrz/git/fetch \
+  -H "Authorization: Bearer $SANDBOX_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"path": "/workspace/my-repo", "token": "ghp_xxxx"}'
+```
+
+**Request body:**
+
+| Field       | Type    | Required | Description                                           |
+| ----------- | ------- | -------- | ----------------------------------------------------- |
+| `path`      | string  | yes      | Path to the git repository within `/workspace`        |
+| `token`     | string  | yes      | Auth token for the remote                             |
+| `remote`    | string  | no       | Remote name (default: `origin`)                       |
+| `branch`    | string  | no       | Branch/refspec to fetch                               |
+| `prune`     | boolean | no       | Remove stale remote-tracking refs (`--prune`)         |
+| `depth`     | number  | no       | Shallow fetch depth limit                             |
+| `tokenUser` | string  | no       | HTTPS username (default: `x-access-token`)            |
+
+**Response (200):**
+
+```json
+{ "ok": true, "stdout": "", "stderr": "From https://github.com/org/repo\n * branch  main -> FETCH_HEAD\n" }
+```
 
 ---
 
