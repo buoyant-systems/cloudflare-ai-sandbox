@@ -1,0 +1,53 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cloudflare-sandbox-bridge",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-05-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  // The Sandbox Durable Object + its container image.
+  // Bump the migration tag whenever new_sqlite_classes changes.
+  "containers": [
+    {
+      "class_name": "Sandbox",
+      // Replace with a custom Dockerfile path if you need extra tooling
+      // (e.g. git, Python, Node.js) in the sandbox container.
+      "image": "./Dockerfile",
+      // "lite" is a good default for getting started; upgrade to "standard-1"
+      // (4 vCPU / 8 GiB RAM) for production workloads.
+      "instance_type": "lite",
+      "max_instances": 3
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "class_name": "Sandbox",
+        "name": "Sandbox"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "new_sqlite_classes": ["Sandbox"],
+      "tag": "v1"
+    },
+    {
+      // WarmPool was removed — this deleted_classes migration ensures Wrangler
+      // cleans up the old DO class on the next deploy.
+      "deleted_classes": ["WarmPool"],
+      "tag": "v3"
+    }
+  ],
+  // Bind an R2 bucket named BACKUP_BUCKET to enable workspace snapshot
+  // persistence via the backup API (optional — tar-over-HTTP works without it).
+  // "r2_buckets": [
+  //   { "binding": "BACKUP_BUCKET", "bucket_name": "cloudflare-sandbox-backups" }
+  // ],
+  // Secrets — set via `wrangler secret put SANDBOX_API_KEY` before deploying.
+  // The Python client must send this value as: Authorization: Bearer <token>
+  // Declared here so wrangler generates the Env type; override in .dev.vars for local dev.
+  "preview_urls": false
+}

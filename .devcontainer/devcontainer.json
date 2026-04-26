@@ -1,0 +1,30 @@
+{
+  "name": "Buoyant: cloudflare-ai-sandbox",
+  "dockerComposeFile": "docker-compose.yaml",
+  "service": "cloudflare-ai-sandbox",
+  "workspaceFolder": "/workspaces/cloudflare-ai-sandbox",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "version": "latest",
+      "moby": "false",
+      "dockerDashComposeVersion": "none"
+    },
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "username": "vscode",
+      "upgradePackages": "false"
+    },
+    "ghcr.io/devcontainers/features/node:1": {}
+  },
+  "customizations": {
+    "antigravity": {
+      "settings": {
+        "antigravity.agent.dockerPath": "/usr/bin/docker"
+      },
+      "extensions": []
+    },
+    "vscode": {
+      "extensions": []
+    }
+  },
+  "postCreateCommand": "git config --global --add safe.directory /workspaces/cloudflare-ai-sandbox && cd /workspaces/cloudflare-ai-sandbox && npm install"
+}
